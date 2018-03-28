@@ -1,4 +1,4 @@
-##Brief Tutorial for Tech Modules
+## Brief Tutorial for Kafka Modules
 
 
 
@@ -75,6 +75,14 @@ kafka下载地址：https://www.apache.org/dyn/closer.cgi?path=/kafka/1.0.1/kafk
 关闭服务器：
 > bin/kafka-server-stop.sh config/server.properties
 
+启动Kafka Broker后，在ZooKeeper终端上键入命令 jps ，您将看到以下响应 -
+
+    821 QuorumPeerMain
+    928 Kafka
+    931 Jps
+
+现在你可以看到两个守护进程运行在终端上，QuorumPeerMain是ZooKeeper守护进程，另一个是Kafka守护进程。
+
 
 ##### 2.3 References:
 [1].https://www.w3cschool.cn/apache_kafka/apache_kafka_quick_guide.html
@@ -82,24 +90,5 @@ kafka下载地址：https://www.apache.org/dyn/closer.cgi?path=/kafka/1.0.1/kafk
 [2].https://blog.csdn.net/trigl/article/details/72581735
 
 
-#####---------------------------------------------------------------------------
-### 2.MongoDB:
-##### 2.1 Installation:
 
 
-##### 2.2 Basic commends:
-
-
-##### 3.3 References:
-
-
-
-#####---------------------------------------------------------------------------
-### 3.Docker:
-##### 3.1 Installation:
-
-
-##### 3.2 Basic commends:
-
-
-##### 3.3 References:
