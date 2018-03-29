@@ -1,6 +1,15 @@
 ## Brief Tutorial for Kafka Modules
 
 
+[原文:]
+https://github.com/WenruiShen/MyQuant
+
+[转载请注明！]
+
+Author: Shen Wenrui
+
+Email:  Thomas.shen3904@qq.com
+ 
 
 ### 1.Zookeeper:
 #### 1.1 Installation:
@@ -148,15 +157,154 @@ Kafka提供了一个名为 kafka-topics.sh 的命令行实用程序，用于在�
 
     broker, producer, consumer三者必须运行在不同的终端窗口中！
 
-#### 2.4: 单节点多代理配置：
-##### 2.4.1 
+#### 2.4: 单节点多代理配置(Setting up a multi-broker cluster)：
+##### 2.4.1 创建多个Kafka Brokers:
+So far we have been running against a single broker, but that's no fun. For Kafka, a single broker is just a cluster of size one, so nothing much changes other than starting a few more broker instances. But just to get feel for it, let's expand our cluster to three nodes (still all on our local machine).
+
+First we make a config file for each of the brokers (on Windows use the copy command instead):
+
+> cp config/server.properties config/server-1.properties
+>
+> cp config/server.properties config/server-2.properties
+
+Now edit these new files and set the following properties:
+
+    config/server-1.properties:
+        broker.id=1
+        listeners=PLAINTEXT://:9093
+        log.dir=/tmp/kafka-logs-1
+     
+    config/server-2.properties:
+        broker.id=2
+        listeners=PLAINTEXT://:9094
+        log.dir=/tmp/kafka-logs-2
+
+
+The ``broker.id`` property is the unique and permanent name of each node in the cluster. We have to override the port and log directory only because we are running these all on the same machine and we want to keep the brokers from all trying to register on the same port or overwrite each other's data.
+
+##### 2.4.2 启动多个多个Kafka Brokers:
+We already have Zookeeper and our single node started, so we just need to start the two new nodes:
+
+> bin/kafka-server-start.sh config/server-1.properties &amp;
+>
+> bin/kafka-server-start.sh config/server-2.properties &amp;
+
+##### 2.4.3 创建主题：
+
+Now create a new topic with a replication factor of three:
+
+> bin/kafka-topics.sh --create --zookeeper localhost:2181 --replication-factor 3 --partitions 1 --topic my-replicated-topic
+
+
+Describe 命令用于检查哪个代理正在侦听当前创建的主题，如下所示 -
+
+> bin/kafka-topics.sh --describe --zookeeper localhost:2181 --topic my-replicated-topic
+
+    Topic:my-replicated-topic   PartitionCount:1    ReplicationFactor:3 Configs:
+    Topic: my-replicated-topic  Partition: 0    Leader: 1   Replicas: 1,2,0 Isr: 1,2,0
+
+从上面的输出，我们可以得出结论，第一行给出所有分区的摘要，显示主题名称，分区数量和我们已经选择的复制因子。 
+在第二行中，每个节点将是分区的随机选择部分的领导者。
+
+在我们的例子中，我们看到我们的第一个broker(with broker.id 0)是领导者。 
+然后Replicas:0,2,1意味着所有代理复制主题最后 Isr 是 in-sync 副本的集合。 
+那么，这是副本的子集，当前活着并被领导者赶上。
+
+
+##### 2.4.4 启动生产者以发送消息
+此过程保持与单代理设置中相同。
+
+Let's publish a few messages to our new topic:
+
+> bin/kafka-console-producer.sh --broker-list localhost:9092 --topic my-replicated-topic
+    
+    ...
+    my test message 1
+    my test message 2
+    ^C
+
+
+##### 2.4.5 启动消费者以接收消息:
+此过程保持与单代理设置中所示的相同。
+
+Now let's consume these messages:
+
+> bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --from-beginning --topic my-replicated-topic
+
+    ...
+    my test message 1
+    my test message 2
+    ^C
+
+##### 2.4.6 Brokers的冗余和选举机制:
+Now let's test out fault-tolerance. Broker 1 was acting as the leader so let's kill it:
+
+> ps aux | grep server-1.properties
+
+    7564 ttys002    0:15.91 /System/Library/Frameworks/JavaVM.framework/Versions/1.8/Home/bin/java...
+
+> kill -9 7564
+
+Leadership has switched to one of the slaves and node 1 is no longer in the in-sync replica set:
+
+> bin/kafka-topics.sh --describe --zookeeper localhost:2181 --topic my-replicated-topic
+
+    Topic:my-replicated-topic   PartitionCount:1    ReplicationFactor:3 Configs:
+    Topic: my-replicated-topic  Partition: 0    Leader: 2   Replicas: 1,2,0 Isr: 2,0
+
+But the messages are still available for consumption even though the leader that took the writes originally is down:
+
+> bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --from-beginning --topic my-replicated-topic
+
+    ...
+    my test message 1
+    my test message 2
+    ^C
+
+
+#### 2.5: 基本主题操作:
+在本章中，我们将讨论各种基本主题操作。
+
+##### 2.5.1 修改主题:
+
+> 语法: bin/kafka-topics.sh —zookeeper localhost:2181 --alter --topic topic_name --partitions count
+
+We have already created a topic “Hello-Kafka" with single partition count and one replica factor. 
+Now using “alter" command we have changed the partition count.
+
+> 示例: bin/kafka-topics.sh --zookeeper localhost:2181 --alter --topic my-replicated-topic --partitions 2
+
+    输出
+    WARNING: If partitions are increased for a topic that has a key, 
+    the partition logic or ordering of the messages will be affected
+    Adding partitions succeeded!
+
+
+##### 2.5.2 删除主题:
+要删除主题，可以使用以下语法。
+
+> 语法: bin/kafka-topics.sh --zookeeper localhost:2181 --delete --topic topic_name
+
+> 示例: bin/kafka-topics.sh --zookeeper localhost:2181 --delete --topic my-replicated-topic
+
+    输出: Topic Hello-kafka marked for deletion
+
+* 注意 - 如果 config/server.properties中 delete.topic.enable 未设置为true，则此操作不会产生任何影响！
+
+[强制删除topic]https://github.com/darrenfu/bigdata/issues/6
+
+#### 2.6: Use Kafka Connect to import/export data:
+##### 2.6.1 
+
+
+
 
 
 
 
 
 #####---------------------------------------------------------------------------
-#### 2.5 References:
+#### 2.7 References:
 [1].https://www.w3cschool.cn/apache_kafka/apache_kafka_quick_guide.html
 
 [2].https://blog.csdn.net/trigl/article/details/72581735
