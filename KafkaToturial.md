@@ -1,8 +1,7 @@
 ## Brief Tutorial for Kafka Modules
 
 
-[原文:]
-https://github.com/WenruiShen/MyQuant
+[原文 -> Github](https://github.com/WenruiShen/MyQuant)
 
 [转载请注明！]
 
@@ -13,7 +12,7 @@ Email:  Thomas.shen3904@qq.com
 
 ### 1.Zookeeper:
 #### 1.1 Installation:
-Zookeeper下载地址：https://mirrors.tuna.tsinghua.edu.cn/apache/zookeeper/stable/
+[Zookeeper下载地址:https://mirrors.tuna.tsinghua.edu.cn/apache/zookeeper/stable/](https://mirrors.tuna.tsinghua.edu.cn/apache/zookeeper/stable/)
 
 > tar -zxf zookeeper-3.4.10.tar.gz 
 >
@@ -159,7 +158,9 @@ Kafka提供了一个名为 kafka-topics.sh 的命令行实用程序，用于在�
 
 #### 2.4: 单节点多代理配置(Setting up a multi-broker cluster)：
 ##### 2.4.1 创建多个Kafka Brokers:
-So far we have been running against a single broker, but that's no fun. For Kafka, a single broker is just a cluster of size one, so nothing much changes other than starting a few more broker instances. But just to get feel for it, let's expand our cluster to three nodes (still all on our local machine).
+So far we have been running against a single broker, but that's no fun. For Kafka, a single broker is just a cluster of 
+size one, so nothing much changes other than starting a few more broker instances. But just to get feel for it, 
+let's expand our cluster to three nodes (still all on our local machine).
 
 First we make a config file for each of the brokers (on Windows use the copy command instead):
 
@@ -180,7 +181,9 @@ Now edit these new files and set the following properties:
         log.dir=/tmp/kafka-logs-2
 
 
-The ``broker.id`` property is the unique and permanent name of each node in the cluster. We have to override the port and log directory only because we are running these all on the same machine and we want to keep the brokers from all trying to register on the same port or overwrite each other's data.
+The ``broker.id`` property is the unique and permanent name of each node in the cluster. We have to override the port and 
+log directory only because we are running these all on the same machine and we want to keep the brokers from all trying 
+to register on the same port or overwrite each other's data.
 
 ##### 2.4.2 启动多个多个Kafka Brokers:
 We already have Zookeeper and our single node started, so we just need to start the two new nodes:
@@ -294,17 +297,65 @@ Now using “alter" command we have changed the partition count.
 [强制删除topic]https://github.com/darrenfu/bigdata/issues/6
 
 #### 2.6: Use Kafka Connect to import/export data:
-##### 2.6.1 
+##### 2.6.1 从文件输入:
+
+Here we'll run Kafka Connect with simple connectors that import data from a file to a Kafka topic and export data from a Kafka topic to a file.
+
+First, we'll start by creating some seed data to test with:
+
+> echo -e "foo\nbar" > test.txt
+
+Next, we'll start two connectors running in standalone mode, which means they run in a single, local, dedicated process. 
+We provide three configuration files as parameters. The first is always the configuration for the Kafka Connect process, 
+containing common configuration such as the Kafka brokers to connect to and the serialization format for data. 
+The remaining configuration files each specify a connector to create. These files include a unique connector name, 
+the connector class to instantiate, and any other configuration required by the connector.
+
+> bin/connect-standalone.sh config/connect-standalone.properties config/connect-file-source.properties config/connect-file-sink.properties
+
+These sample configuration files, included with Kafka, use the default local cluster configuration you started earlier 
+and create two connectors: the first is a source connector that reads lines from an input file and produces each to a 
+Kafka topic and the second is a sink connector that reads messages from a Kafka topic and produces each as a line in an output file.
+
+##### 2.6.2 从文件输出:
+
+During startup you'll see a number of log messages, including some indicating that the connectors are being instantiated. 
+Once the Kafka Connect process has started, the source connector should start reading lines from ``test.txt`` and producing 
+them to the topic ``connect-test``, and the sink connector should start reading messages from the topic ``connect-test`` and write 
+them to the file ``test.sink.txt``. We can verify the data has been delivered through the entire pipeline by examining the 
+contents of the output file:
+
+> more test.sink.txt
+
+    foo
+    bar
+
+Note that the data is being stored in the Kafka topic ``connect-test``, so we can also run a console consumer to see the 
+ata in the topic (or use custom consumer code to process it):
+
+> bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic connect-test --from-beginning
+
+    {"schema":{"type":"string","optional":false},"payload":"foo"}
+    {"schema":{"type":"string","optional":false},"payload":"bar"}
+    ...
+
+The connectors continue to process data, so we can add data to the file and see it move through the pipeline:
+
+> echo Another line>> test.txt
+
+You should see the line appear in the console consumer output and in the sink file.
 
 
-
-
-
-
-
+#### 2.7: Use Kafka Streams to process data
+Kafka Streams is a client library for building mission-critical real-time applications and microservices, 
+where the input and/or output data is stored in Kafka clusters. Kafka Streams combines the simplicity of writing and 
+deploying standard Java and Scala applications on the client side with the benefits of Kafka's server-side cluster 
+technology to make these applications highly scalable, elastic, fault-tolerant, distributed, and much more. 
+This [quickstart example](https://kafka.apache.org/11/documentation/streams/quickstart) 
+will demonstrate how to run a streaming application coded in this library.
 
 #####---------------------------------------------------------------------------
-#### 2.7 References:
+#### 2.8 References:
 [1].https://www.w3cschool.cn/apache_kafka/apache_kafka_quick_guide.html
 
 [2].https://blog.csdn.net/trigl/article/details/72581735
